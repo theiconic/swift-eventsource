@@ -115,6 +115,8 @@ class EventSourceDelegate: NSObject, URLSessionDataDelegate {
     private var urlSession: URLSession?
     private var sessionTask: URLSessionDataTask?
 
+    private var reconnectWorkItem: DispatchWorkItem?
+
     init(config: EventSource.Config) {
         self.config = config
         lastEventId = config.lastEventId
@@ -143,6 +145,8 @@ class EventSourceDelegate: NSObject, URLSessionDataDelegate {
         if previousState == .open {
             config.handler.onClosed()
         }
+        reconnectWorkItem?.cancel()
+        reconnectWorkItem = nil
         urlSession?.invalidateAndCancel()
         urlSession = nil
     }
@@ -228,9 +232,13 @@ class EventSourceDelegate: NSObject, URLSessionDataDelegate {
         #if !os(Linux)
         os_log("Waiting %.3f seconds before reconnecting...", log: logger, type: .info, sleep)
         #endif
-        delegateQueue.asyncAfter(deadline: .now() + sleep) { [weak self] in
+
+        reconnectWorkItem?.cancel()
+        let workitem = DispatchWorkItem { [weak self] in
             self?.connect()
         }
+        delegateQueue.asyncAfter(deadline: .now() + sleep, execute: workitem)
+        reconnectWorkItem = workitem
     }
 
     // MARK: URLSession Delegates
