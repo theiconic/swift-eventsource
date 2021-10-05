@@ -145,6 +145,7 @@ class EventSourceDelegate: NSObject, URLSessionDataDelegate {
             let previousState = self.readyState
             self.readyState = .shutdown
             self.sessionTask?.cancel()
+            self.sessionTask = nil
             if previousState == .open {
                 self.config.handler.onClosed()
             }
