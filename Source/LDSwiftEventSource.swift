@@ -139,16 +139,20 @@ class EventSourceDelegate: NSObject, URLSessionDataDelegate {
     }
 
     func stop() {
-        let previousState = readyState
-        readyState = .shutdown
-        sessionTask?.cancel()
-        if previousState == .open {
-            config.handler.onClosed()
+        delegateQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            let previousState = self.readyState
+            self.readyState = .shutdown
+            self.sessionTask?.cancel()
+            if previousState == .open {
+                self.config.handler.onClosed()
+            }
+            self.reconnectWorkItem?.cancel()
+            self.reconnectWorkItem = nil
+            self.urlSession?.invalidateAndCancel()
+            self.urlSession = nil
         }
-        reconnectWorkItem?.cancel()
-        reconnectWorkItem = nil
-        urlSession?.invalidateAndCancel()
-        urlSession = nil
     }
 
     func getLastEventId() -> String? { lastEventId }
